@@ -1,4 +1,7 @@
+.DS_Store
+
 /target
 Cargo.lock
+
 /get-size-derive/target
 /get-size-derive/Cargo.lock
