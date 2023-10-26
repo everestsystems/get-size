@@ -4,7 +4,7 @@ on:
   pull_request:
 
 jobs:
-  test-server:
+  test:
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
@@ -47,4 +47,4 @@ jobs:
           key: "1" # increment this to bust the cache if needed
 
       - name: Run cargo lint
-        run: cargo lint
+        run: cargo clippy
