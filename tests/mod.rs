@@ -1,4 +1,4 @@
-use std::{rc::Rc, sync::Arc};
+use std::{borrow::Cow, rc::Rc, sync::Arc};
 
 use get_size::*;
 
@@ -323,4 +323,13 @@ fn boxed_slice() {
         boxed.get_heap_size(&mut NoTracker),
         size_of::<&u8>() * boxed.len()
     );
+}
+
+#[test]
+fn cow_static_str() {
+    let cow = Cow::<'static, str>::Borrowed("Hello");
+    assert_eq!(cow.get_heap_size(&mut NoTracker), 0);
+
+    let owned = cow.into_owned();
+    assert_eq!(owned.get_heap_size(&mut NoTracker), 5);
 }

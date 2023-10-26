@@ -106,6 +106,15 @@ impl GetSize for Instant {}
 impl GetSize for Duration {}
 impl GetSize for SystemTime {}
 
+impl<'a> GetSize for Cow<'a, str> {
+    fn get_heap_size<Tracker: GetSizeTracker>(&self, tracker: &mut Tracker) -> usize {
+        match self {
+            Self::Borrowed(_borrowed) => 0,
+            Self::Owned(owned) => GetSize::get_heap_size(owned, tracker),
+        }
+    }
+}
+
 impl<'a, T> GetSize for Cow<'a, T>
 where
     T: ToOwned,
@@ -343,7 +352,7 @@ where
     T: GetSize + 'static,
 {
     fn get_heap_size<Tracker: GetSizeTracker>(&self, tracker: &mut Tracker) -> usize {
-        let Some(rc) = std::rc::Weak::upgrade(&self) else {
+        let Some(rc) = std::rc::Weak::upgrade(self) else {
             return 0;
         };
 
@@ -392,7 +401,7 @@ where
     T: GetSize + 'static,
 {
     fn get_heap_size<Tracker: GetSizeTracker>(&self, tracker: &mut Tracker) -> usize {
-        let Some(arc) = std::sync::Weak::upgrade(&self) else {
+        let Some(arc) = std::sync::Weak::upgrade(self) else {
             return 0;
         };
 
