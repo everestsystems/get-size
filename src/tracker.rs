@@ -92,30 +92,11 @@ impl GetSizeTracker for StandardTracker {
 }
 
 /// A pseudo tracker which does not track anything.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct NoTracker {
-    answer: bool,
-}
-
-impl NoTracker {
-    /// Creates a new pseudo tracker, which will always return the given `answer`.
-    pub fn new(answer: bool) -> Self {
-        Self { answer }
-    }
-
-    /// Get the answer which will always be returned by this pseudo tracker.
-    pub fn answer(&self) -> bool {
-        self.answer
-    }
-
-    /// Changes the answer which will always be returned by this pseudo tracker.
-    pub fn set_answer(&mut self, answer: bool) {
-        self.answer = answer;
-    }
-}
+#[derive(Debug, Clone, Copy)]
+pub struct NoTracker;
 
 impl GetSizeTracker for NoTracker {
     fn track<A: Any + 'static, B>(&mut self, _addr: *const B, _strong_ref: A) -> bool {
-        self.answer
+        true
     }
 }

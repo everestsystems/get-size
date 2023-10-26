@@ -1,12 +1,9 @@
 #![doc = include_str!("./lib.md")]
 
-
+use attribute_derive::Attribute;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn;
-use attribute_derive::Attribute;
-
-
 
 #[derive(Attribute, Default, Debug)]
 #[attribute(ident = get_size)]
@@ -18,8 +15,6 @@ struct StructFieldAttribute {
     #[attribute(conflicts = [size, size_fn])]
     ignore: bool,
 }
-
-
 
 fn extract_ignored_generics_list(list: &Vec<syn::Attribute>) -> Vec<syn::PathSegment> {
     let mut collection = Vec::new();
@@ -61,21 +56,19 @@ fn extract_ignored_generics(attr: &syn::Attribute) -> Vec<syn::PathSegment> {
         })?;
 
         Ok(())
-    }).unwrap();
+    })
+    .unwrap();
 
     collection
 }
 
 // Add a bound `T: GetSize` to every type parameter T, unless we ignore it.
-fn add_trait_bounds(
-    mut generics: syn::Generics,
-    ignored: &Vec<syn::PathSegment>,
-) -> syn::Generics {
+fn add_trait_bounds(mut generics: syn::Generics, ignored: &Vec<syn::PathSegment>) -> syn::Generics {
     for param in &mut generics.params {
         if let syn::GenericParam::Type(type_param) = param {
             let mut found = false;
             for ignored in ignored.iter() {
-                if ignored.ident==type_param.ident {
+                if ignored.ident == type_param.ident {
                     found = true;
                     break;
                 }
@@ -91,15 +84,13 @@ fn add_trait_bounds(
     generics
 }
 
-
-
 #[proc_macro_derive(GetSize, attributes(get_size))]
 pub fn derive_get_size(input: TokenStream) -> TokenStream {
     // Construct a representation of Rust code as a syntax tree
     // that we can manipulate
     let ast: syn::DeriveInput = syn::parse(input).unwrap();
 
-     // The name of the sruct.
+    // The name of the sruct.
     let name = &ast.ident;
 
     // Extract all generics we shall ignore.
@@ -119,7 +110,7 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
                 let gen = quote! {
                     impl GetSize for #name {}
                 };
-                return gen.into()
+                return gen.into();
             }
 
             let mut cmds = Vec::with_capacity(data_enum.variants.len());
@@ -133,7 +124,7 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
 
                         let mut field_idents = Vec::with_capacity(num_fields);
                         for i in 0..num_fields {
-                            let field_ident = String::from("v")+&i.to_string();
+                            let field_ident = String::from("v") + &i.to_string();
                             let field_ident = syn::parse_str::<syn::Ident>(&field_ident).unwrap();
 
                             field_idents.push(field_ident);
@@ -142,12 +133,11 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
                         let mut field_cmds = Vec::with_capacity(num_fields);
 
                         for (i, _field) in unnamed_fields.unnamed.iter().enumerate() {
-                            let field_ident = String::from("v")+&i.to_string();
+                            let field_ident = String::from("v") + &i.to_string();
                             let field_ident = syn::parse_str::<syn::Ident>(&field_ident).unwrap();
 
                             field_cmds.push(quote! {
-                                let (total_add, tracker) = GetSize::get_heap_size_with_tracker(#field_ident, tracker);
-                                total += total_add;
+                                total += GetSize::get_heap_size(#field_ident, tracker);
                             })
                         }
 
@@ -157,7 +147,7 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
 
                                 #(#field_cmds)*;
 
-                                (total, tracker)
+                                total
                             }
                         });
                     }
@@ -174,8 +164,7 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
                             field_idents.push(field_ident);
 
                             field_cmds.push(quote! {
-                                let (total_add, tracker) = GetSize::get_heap_size_with_tracker(#field_ident, tracker);
-                                total += total_add;
+                                total += GetSize::get_heap_size(#field_ident, tracker);
                             })
                         }
 
@@ -185,13 +174,13 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
 
                                 #(#field_cmds)*;
 
-                                (total, tracker)
+                                total
                             }
                         });
                     }
                     syn::Fields::Unit => {
                         cmds.push(quote! {
-                            Self::#ident => (0, tracker),
+                            Self::#ident => 0,
                         });
                     }
                 }
@@ -200,18 +189,7 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
             // Build the trait implementation
             let gen = quote! {
                 impl #impl_generics GetSize for #name #ty_generics #where_clause {
-                    fn get_heap_size(&self) -> usize {
-                        let tracker = get_size::StandardTracker::default();
-
-                        let (total, _) = GetSize::get_heap_size_with_tracker(self, tracker);
-
-                        total
-                    }
-
-                    fn get_heap_size_with_tracker<TRACKER: get_size::GetSizeTracker>(
-                        &self,
-                        tracker: TRACKER,
-                    ) -> (usize, TRACKER) {
+                    fn get_heap_size<Tracker: get_size::GetSizeTracker>(&self, tracker: &mut Tracker) -> usize {
                         match self {
                             #(#cmds)*
                         }
@@ -220,7 +198,9 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
             };
             return gen.into();
         }
-        syn::Data::Union(_data_union) => panic!("Deriving GetSize for unions is currently not supported."),
+        syn::Data::Union(_data_union) => {
+            panic!("Deriving GetSize for unions is currently not supported.")
+        }
         syn::Data::Struct(data_struct) => {
             if data_struct.fields.is_empty() {
                 // Empty structs are easy to implement.
@@ -235,7 +215,6 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
             let mut unidentified_fields_count = 0; // For newtypes
 
             for field in data_struct.fields.iter() {
-
                 // Parse all relevant attributes.
                 let attr = StructFieldAttribute::from_attributes(&field.attrs).unwrap();
 
@@ -260,14 +239,12 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
 
                 if let Some(ident) = field.ident.as_ref() {
                     cmds.push(quote! {
-                        let (total_add, tracker) = GetSize::get_heap_size_with_tracker(&self.#ident, tracker);
-                        total += total_add;
+                        total += GetSize::get_heap_size(&self.#ident, tracker);
                     });
                 } else {
                     let current_index = syn::Index::from(unidentified_fields_count);
                     cmds.push(quote! {
-                        let (total_add, tracker) = GetSize::get_heap_size_with_tracker(&self.#current_index, tracker);
-                        total += total_add;
+                        total += GetSize::get_heap_size(&self.#current_index, tracker);
                     });
 
                     unidentified_fields_count += 1;
@@ -277,27 +254,16 @@ pub fn derive_get_size(input: TokenStream) -> TokenStream {
             // Build the trait implementation
             let gen = quote! {
                 impl #impl_generics GetSize for #name #ty_generics #where_clause {
-                    fn get_heap_size(&self) -> usize {
-                        let tracker = get_size::StandardTracker::default();
-
-                        let (total, _) = GetSize::get_heap_size_with_tracker(self, tracker);
-
-                        total
-                    }
-
-                    fn get_heap_size_with_tracker<TRACKER: get_size::GetSizeTracker>(
-                        &self,
-                        tracker: TRACKER,
-                    ) -> (usize, TRACKER) {
+                    fn get_heap_size<Tracker: get_size::GetSizeTracker>(&self, tracker: &mut Tracker) -> usize {
                         let mut total = 0;
 
                         #(#cmds)*;
 
-                        (total, tracker)
+                        total
                     }
                 }
             };
             return gen.into();
-        },
+        }
     }
 }
